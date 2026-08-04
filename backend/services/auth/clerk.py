@@ -1,0 +1,9 @@
+import os
+from clerk_backend_api import Clerk
+from dotenv import load_dotenv
+load_dotenv()
+
+
+clerk = Clerk(
+    bearer_auth=os.getenv("CLERK_SECRET_KEY")
+)

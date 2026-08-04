@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom text selection color — replaces the default gray/white browser highlight */
+::selection {
+  background: rgba(99, 102, 241, 0.35) !important;
+  color: inherit !important;
+}
+::-moz-selection {
+  background: rgba(99, 102, 241, 0.35) !important;
+  color: inherit !important;
+}
+
+/* Force selection color inside code blocks specifically, in case SyntaxHighlighter scopes its own styles */
+.code-scroll ::selection,
+.code-scroll pre ::selection,
+.code-scroll code ::selection,
+.code-scroll span::selection {
+  background: rgba(99, 102, 241, 0.35) !important;
+  color: inherit !important;
+}
+.code-scroll ::-moz-selection,
+.code-scroll pre ::-moz-selection,
+.code-scroll code ::-moz-selection,
+.code-scroll span::-moz-selection {
+  background: rgba(99, 102, 241, 0.35) !important;
+  color: inherit !important;
+}
+
+/* Strip any leftover per-token background Prism/oneDark might inject on spans */
+.code-scroll pre,
+.code-scroll code,
+.code-scroll span {
+  background: transparent !important;
+}
+
+/* Table + code block scrollbars */
+.table-scroll::-webkit-scrollbar,
+.code-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-scroll::-webkit-scrollbar-track,
+.code-scroll::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 10px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb,
+.code-scroll::-webkit-scrollbar-thumb {
+  background: #4c1d95;
+  border-radius: 10px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb:hover,
+.code-scroll::-webkit-scrollbar-thumb:hover {
+  background: #7c3aed;
+}
+
+.table-scroll,
+.code-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #4c1d95 #1a1a1a;
+}

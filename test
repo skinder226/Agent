@@ -1,0 +1,78 @@
+"use client";
+
+import { useSignIn } from "@clerk/nextjs";
+import { FcGoogle } from "react-icons/fc";
+import { toast } from "react-toastify";
+import VerifyUser from "./auth/VerifyUser";
+
+export default function Home() {
+  const { signIn, errors } = useSignIn();
+
+  const handleGoogleSignIn = async () => {
+    console.clear();
+    console.log("========== Google Sign In ==========");
+    console.log("signIn:", signIn);
+
+    if (!signIn) {
+      console.error("❌ signIn is undefined");
+      toast.error("Clerk has not loaded yet.");
+      return;
+    }
+
+    try {
+      console.log("Available methods:", Object.keys(signIn));
+
+      const result = await signIn.sso({
+        strategy: "oauth_google",
+        redirectUrl: "/",
+        redirectCallbackUrl: "/",
+      });
+
+      console.log("SSO Result:", result);
+
+      if (result?.error) {
+        console.error(result.error);
+        toast.error(result.error.message || "Google sign in failed.");
+      }
+    } catch (err) {
+      console.error("Google Sign In Error:");
+      console.error(err);
+      toast.error(err.message || "Something went wrong.");
+    }
+  };
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-[#0d0f14]">
+      <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur">
+        <div className="w-[340px] rounded-2xl border border-white/10 bg-[#13151c] p-7">
+          <div className="mb-5">
+            <h2 className="text-[17px] font-semibold text-slate-100">
+              Welcome to CORTEX AI
+            </h2>
+
+            <p className="mt-1 text-[13px] text-slate-500">
+              Please login to continue using the app.
+            </p>
+          </div>
+
+          <button
+            onClick={handleGoogleSignIn}
+            className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-700 py-3 font-semibold text-white transition-all duration-200 hover:from-indigo-400 hover:to-violet-600"
+          >
+            <FcGoogle size={20} />
+            Continue with Google
+          </button>
+        </div>
+      </div>
+
+      {errors?.length > 0 && (
+        <pre className="absolute bottom-5 left-5 max-w-lg overflow-auto rounded bg-black p-4 text-xs text-red-400">
+          {JSON.stringify(errors, null, 2)}
+        </pre>
+      )}
+
+      <VerifyUser />
+    </div>
+
+  );
+}
