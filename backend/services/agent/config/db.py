@@ -7,7 +7,6 @@ load_dotenv()
 client = None
 db = None
 
-
 def connect_db():
     global client, db
 
@@ -16,6 +15,7 @@ def connect_db():
     client = AsyncIOMotorClient(MONGO_URL)
 
     db = client["agent"]
+
 
     print("Connected to MongoDB")
 

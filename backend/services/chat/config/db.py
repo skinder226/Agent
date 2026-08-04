@@ -8,7 +8,7 @@ client = None
 db = None
 
 
-def connect_db():
+async def connect_db():
     global client, db
 
     client = AsyncIOMotorClient(
@@ -16,7 +16,8 @@ def connect_db():
     )
 
     db = client["chat"]
-
+    await db["conversations"].create_index([("user_id", 1), ("CreatedAt", -1)])
+    await db["messages"].create_index([("conversation_id", 1)])
     return db
 
 

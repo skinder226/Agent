@@ -160,7 +160,7 @@ async def router_agent(state: agnetState):
     routed_to = None
     last_error = None
 
-    for attempt in range(3):
+    for attempt in range(1):
         try:
             llm_response = await llm.ainvoke(messages)
             candidate = llm_response.content.strip().lower()

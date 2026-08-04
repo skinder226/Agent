@@ -9,6 +9,7 @@ from graph.graph import graph
 from config.memory import addMessage
 import traceback
 import os
+import asyncio
 
 load_dotenv()
 
@@ -28,8 +29,8 @@ async def agent(request: Request):
 
         try:
             # save user message first
-            async with httpx.AsyncClient() as client:
-                await client.post(
+            asyncio.create_task(
+                httpx.AsyncClient().post(
                     os.getenv("CHAT_SERVICE_URL") + "/save-message",
                     headers={"Authorization": auth_header},
                     json={
@@ -38,6 +39,7 @@ async def agent(request: Request):
                         "content": prompt.strip(),
                     },
                 )
+            )
             await addMessage(conversation_id, "user", prompt.strip())
             async for mode, payload in graph.astream(
                 {
@@ -69,8 +71,8 @@ async def agent(request: Request):
             # stream finished — persist everything
             await addMessage(conversation_id, "assistant", full_text)
 
-            async with httpx.AsyncClient(timeout=160) as client:
-                await client.post(
+            asyncio.create_task(
+                httpx.AsyncClient(timeout=160).post(
                     os.getenv("CHAT_SERVICE_URL") + "/save-message",
                     headers={"Authorization": os.getenv("CHAT_SERVICE_AUTHORIZATION")},
                     json={
@@ -80,7 +82,8 @@ async def agent(request: Request):
                         "images": images,
                     },
                 )
-
+            )
+    
             yield f"data: {json.dumps({'type': 'done', 'images': images})}\n\n"
 
 

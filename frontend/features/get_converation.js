@@ -10,7 +10,7 @@ export const getConversations = async (Authorization) => {
             }
         });
         let res = await data.json();
-        return await res;
+        return res;
     } catch (error) {
         console.log("Error in get_conversations", error);
         return []

@@ -74,13 +74,8 @@ async def getConversations(request: Request):
 
         # Find user's conversations
         conversations = await conversation_collection.find(
-            {
-                "user_id": user_id
-            }
-        ).sort(
-            "CreatedAt",
-            -1
-        ).to_list(length=None)
+            {"user_id": user_id}
+        ).sort("CreatedAt", -1).limit(30).to_list(length=30)
 
         # Convert ObjectId to string
         for conversation in conversations:
