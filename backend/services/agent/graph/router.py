@@ -1,5 +1,5 @@
 from .state import agnetState
-from langchain.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from config.llmModels import get_model
 
 # "search" removed from valid routes
@@ -159,9 +159,11 @@ async def router_agent(state: agnetState):
 
     routed_to = None
     last_error = None
-
-    for attempt in range(1):
+    retries = 0
+    for attempt in range(2):
         try:
+            retries += 1
+            print(f"router_agent: attempt {retries} to route user query: {user_query!r}")
             llm_response = await llm.ainvoke(messages)
             candidate = llm_response.content.strip().lower()
             if candidate in VALID_ROUTES:

@@ -14,6 +14,17 @@ import asyncio
 load_dotenv()
 
 
+async def _save_message(url, headers, payload):
+    """Fire-and-forget POST that owns its own client lifecycle and
+    logs (instead of silently swallowing) any failure."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            await client.post(url, headers=headers, json=payload)
+    except Exception as e:
+        print(f"Background save-message failed: {e}")
+ 
+
+
 async def agent(request: Request):
     body = await request.json()
     conversation_id, prompt, agent_type = (
@@ -29,18 +40,18 @@ async def agent(request: Request):
 
         try:
             # save user message first
+            asyncio.create_task(_save_message(
+                os.getenv("CHAT_SERVICE_URL") + "/save-message",
+                {"Authorization": auth_header},
+                {
+                    "conversation_id": conversation_id,
+                    "role": "user",
+                    "content": prompt.strip(),
+                },
+            ))
             asyncio.create_task(
-                httpx.AsyncClient().post(
-                    os.getenv("CHAT_SERVICE_URL") + "/save-message",
-                    headers={"Authorization": auth_header},
-                    json={
-                        "conversation_id": conversation_id,
-                        "role": "user",
-                        "content": prompt.strip(),
-                    },
-                )
+            addMessage(conversation_id, "user", prompt.strip())
             )
-            await addMessage(conversation_id, "user", prompt.strip())
             async for mode, payload in graph.astream(
                 {
                     "user_query": prompt,
@@ -53,7 +64,7 @@ async def agent(request: Request):
                 if mode == "custom":
                     # payload is whatever you passed to writer() in chat_agent
                     full_text += payload
-                    print(full_text)
+                    print("from agnet_controller: full_text =", full_text)
                     yield f"data: {json.dumps({'type': 'token', 'content': payload})}\n\n"
 
                 elif mode == "updates":
@@ -69,21 +80,22 @@ async def agent(request: Request):
                             full_text = node_output["ai_response"]
 
             # stream finished — persist everything
-            await addMessage(conversation_id, "assistant", full_text)
-
             asyncio.create_task(
-                httpx.AsyncClient(timeout=160).post(
-                    os.getenv("CHAT_SERVICE_URL") + "/save-message",
-                    headers={"Authorization": os.getenv("CHAT_SERVICE_AUTHORIZATION")},
-                    json={
-                        "conversation_id": conversation_id,
+            addMessage(conversation_id, "assistant", full_text)
+            )
+
+            asyncio.create_task(_save_message(
+                os.getenv("CHAT_SERVICE_URL") + "/save-message",
+                {"Authorization": os.getenv("CHAT_SERVICE_AUTHORIZATION")},
+                {
+                    "conversation_id": conversation_id,
                         "role": "assistant",
                         "content": full_text,
                         "images": images,
                     },
                 )
             )
-    
+
             yield f"data: {json.dumps({'type': 'done', 'images': images})}\n\n"
 
 

@@ -15,12 +15,15 @@ port = int(os.getenv("port"))
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    app.state.mongo_client = connect_db()
-
-    yield
-    # Shutdown
-    disconnect_db()
-
+    try:
+        app.state.mongo_client = await connect_db()
+        print("Connected to MongoDB")
+        yield
+        # Shutdown
+        disconnect_db()
+    except Exception as e:
+        print(f"Error during startup: {e}")
+        yield
 app = FastAPI(lifespan=lifespan)
 
 

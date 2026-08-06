@@ -7,7 +7,7 @@ load_dotenv()
 groq = ChatGroq(
     model="openai/gpt-oss-120b",
     api_key=os.getenv("GROQ_API_KEY"),
-    temperature=1.0,   # gpt-oss models are unstable/lower quality at other temperatures
+    temperature=0,
 )
 
 # Small, fast, stable model dedicated to routing — avoids the gpt-oss-120b
@@ -32,6 +32,6 @@ def get_model(agent: str):
     elif agent == "vision":
         return Nvidia
     elif agent == "router":
-        return  router_llm
+        return  groq
     else:
         return Nvidia

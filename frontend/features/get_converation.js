@@ -1,8 +1,6 @@
-
-
-export const getConversations = async (Authorization) => {
+export const getConversations = async (Authorization,page = 1) => {
     try {
-        const data = await fetch("http://localhost:8000/chat/get-conversations", {
+        const data = await fetch(`http://localhost:8000/chat/get-conversations?page=${page}`, {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",

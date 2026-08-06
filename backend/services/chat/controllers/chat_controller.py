@@ -1,3 +1,4 @@
+from aiohttp import request
 from fastapi.encoders import jsonable_encoder
 
 from models.conversation_model import ConversationSchema
@@ -73,20 +74,30 @@ async def getConversations(request: Request):
             )
 
         # Find user's conversations
-        conversations = await conversation_collection.find(
+
+        page = request.query_params.get("page", 1)
+        limit = 30
+
+
+        
+        raw = await conversation_collection.find(
             {"user_id": user_id}
-        ).sort("CreatedAt", -1).limit(30).to_list(length=30)
+        ).sort("CreatedAt", -1).skip((int(page) - 1) * limit).limit(limit or 30).to_list(length=limit or 30)
+
+        has_more = len(raw) >= limit
+
 
         # Convert ObjectId to string
-        for conversation in conversations:
+        for conversation in raw:
             conversation["_id"] = str(conversation["_id"])
 
         return JSONResponse(
             status_code=200,
-            content=jsonable_encoder({"conversations": conversations})
+            content=jsonable_encoder({"conversations": raw, "has_more": has_more})
         )
 
     except Exception as e:
+        print(f"Error in getConversations: {e}")
         return JSONResponse(
             status_code=500,
             content=jsonable_encoder({"get conversation error": str(e)})

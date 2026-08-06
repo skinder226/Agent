@@ -29,8 +29,19 @@ const MessageList = () => {
       ) : (
         <div className='space-y-5'>
           {messages.map((message, index) => {
-              console.log("Message:", message); // Log the message object to see its structure
-              return <MessageBubble key={index} role={message?.role} content={message?.content} images={message?.images || []} />;
+              const isLastMessage = index === messages.length - 1;
+              const isLatestAssistantMessage =
+                isLastMessage && message?.role === 'assistant';
+
+              return (
+                <MessageBubble
+                  key={index}
+                  role={message?.role}
+                  content={message?.content}
+                  images={message?.images || []}
+                  isLatest={isLatestAssistantMessage}
+                />
+              );
           })}
         </div>
       )}

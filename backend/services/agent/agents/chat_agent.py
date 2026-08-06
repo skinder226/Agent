@@ -77,6 +77,53 @@ English is your primary language, but you can also communicate in other language
     full_text = ""
     tool_messages = []
 
+    # Some reasoning-capable models (via NIM: DeepSeek-R1, QwQ, Nemotron
+    # reasoning variants, etc.) emit their internal reasoning wrapped in
+    # <think>...</think> before the real answer. We must never forward
+    # that to the frontend. Buffer across chunks since the tags can be
+    # split across multiple stream deltas.
+    stream_buffer = ""
+    in_think_block = False
+
+    def _process_and_emit(chunk_text: str):
+        """Strip <think>...</think> content from chunk_text, emit the
+        rest via writer(), and append it to full_text."""
+        nonlocal stream_buffer, in_think_block, full_text
+
+        stream_buffer += chunk_text
+
+        while True:
+            if not in_think_block:
+                start = stream_buffer.find("<think>")
+                if start == -1:
+                    # No opening tag pending — flush everything we have,
+                    # but hold back a small tail in case "<think>" is
+                    # split across this chunk and the next one.
+                    hold_back = len("<think>") - 1
+                    if len(stream_buffer) > hold_back:
+                        emit = stream_buffer[: len(stream_buffer) - hold_back]
+                        stream_buffer = stream_buffer[len(stream_buffer) - hold_back :]
+                        if emit:
+                            full_text += emit
+                            writer(emit)
+                    break
+                else:
+                    pre = stream_buffer[:start]
+                    if pre:
+                        full_text += pre
+                        writer(pre)
+                    stream_buffer = stream_buffer[start + len("<think>"):]
+                    in_think_block = True
+            else:
+                end = stream_buffer.find("</think>")
+                if end == -1:
+                    # Still inside reasoning — discard, nothing to show.
+                    stream_buffer = ""
+                    break
+                else:
+                    stream_buffer = stream_buffer[end + len("</think>"):]
+                    in_think_block = False
+
     async for mode, payload in agent.astream(
         {"messages": messages},
         stream_mode=["messages", "updates"],
@@ -84,15 +131,27 @@ English is your primary language, but you can also communicate in other language
         if mode == "messages":
             message_chunk, metadata = payload
 
+            # Some providers expose reasoning separately instead of inline
+            # <think> tags — skip those chunks entirely if present.
+            reasoning_content = getattr(message_chunk, "additional_kwargs", {}).get(
+                "reasoning_content"
+            )
+            if reasoning_content and not message_chunk.content:
+                continue
+
             if message_chunk.content:
-                full_text += message_chunk.content
-                writer(message_chunk.content)
+                _process_and_emit(message_chunk.content)
 
         elif mode == "updates":
             for node_output in payload.values():
                 for msg in node_output.get("messages", []):
                     if isinstance(msg, ToolMessage):
                         tool_messages.append(msg)
+
+    # Flush any trailing held-back text once streaming is done.
+    if stream_buffer and not in_think_block:
+        full_text += stream_buffer
+        writer(stream_buffer)
 
     images = []
 

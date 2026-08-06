@@ -1,13 +1,14 @@
 "use client";
 import React, { useEffect } from 'react'
-import { PanelLeftIcon, PenSquare, Plus, MessageSquare, PanelRight } from 'lucide-react'
+import { PanelLeftIcon, PenSquare, Plus, MessageSquare, PanelRight,ChevronDown } from 'lucide-react'
 import { useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
 import { getConversations } from '@/features/get_converation.js';
 import { create_conversation } from '@/features/create_conversation.js';
 import { useDispatch, useSelector } from 'react-redux';
-import { addConversation, deleteSelectedConversation, setConversations, setSelectedConversation } from '@/redux/conversationSlice';
+import { addConversation, deleteConversation, deleteSelectedConversation, setConversations, setSelectedConversation,setIsCreatingConversation } from '@/redux/conversationSlice';
 import { useUser } from '@clerk/nextjs'
+import { useRef } from 'react';
 import { User, Coins } from 'lucide-react';
 import SignIn from '@/components/SignIn.jsx'
 import SignOut from "@/components/SignOut.jsx"
@@ -15,26 +16,43 @@ const Sidebar = () => {
     const { getToken } = useAuth();
     const { user, isSignedIn } = useUser();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [has_more, setHasMore] = useState(true);
     const [imageError, setImageError] = useState(false);
+    const [page, setPage] = useState(1);
+
     const dispatch = useDispatch();
     const { conversations, selectedConversation } = useSelector((state) => state.conversation);
     const getConv = async () => {
-        let token = await getToken();
-        let converations = await getConversations(token);
+        let token = await getToken();;
+        let converations = await getConversations(token, page);
         dispatch(setConversations(converations.conversations));
+        setHasMore(converations.has_more);
+        setPage(page + 1);
         //  I want to do like that the api could return the converation in the objects and the setconveration will be replaced the arry with the object i want to solve it
     }
+
+    const HandelShowMore = async () => {
+        let token = await getToken();;
+        let converations = await getConversations(token, page);
+        dispatch(setConversations([...conversations, ...converations.conversations]));
+        setHasMore(converations.has_more);
+        // setPage(page + 1);
+    }
+
+
 
     // console.log("Conversation:", conversations);
     // console.log("ID:", conversations?._id);
 
     console.log("Selected Conversation:", selectedConversation);
     const Createconv = async () => {
+        dispatch(setIsCreatingConversation(true));
         let token = await getToken();
         let created_conversation = await create_conversation(token);
         created_conversation["conversation"]["_id"] = created_conversation["conversation_id"]
         console.log("Created Conversation:", created_conversation);
         dispatch(addConversation(created_conversation["conversation"]));
+
     }
     useEffect(() => {
         if (isSignedIn) {
@@ -61,7 +79,7 @@ const Sidebar = () => {
                 </button>
                 <div className="flex-1 overflow-y-auto px-2.5 pb-2 scrollbar-none [&:-webkit-scrollbar]:hidden pt-5">
 
-                    {conversations.map((conversation, i) => {
+                    {conversations?.map((conversation, i) => {
                         let isActive = selectedConversation?._id === conversation?._id;
                         return (
                             <div
@@ -76,8 +94,20 @@ const Sidebar = () => {
                         )
 
                     })}
-
-
+                    {has_more && (
+                        <div className="flex justify-center mt-2">
+                            <button
+                                onClick={() => HandelShowMore()}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer
+                       bg-white/[0.05] text-slate-400
+                       hover:bg-white/[0.08] hover:text-slate-200
+                       transition-all duration-200"
+                                title="Show More"
+                            >
+                                <ChevronDown size={16} />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className='relative shrink-0'>
@@ -145,14 +175,14 @@ const Sidebar = () => {
                     :
                     (
                         <div className='px-5 pt-4 pb-1.5 text-[10.5px] font-semibold uppercase tracking-widest text-slate-600'>
-                            Recents
+                            Recents {conversations?.length > 0 && `(${conversations?.length})`}
                         </div>
                     )
                 }
 
                 <div className="flex-1 overflow-y-auto px-2.5 pb-2 scrollbar-none [&:-webkit-scrollbar]:hidden">
 
-                    {conversations.map((conversation, i) => {
+                    {conversations?.map((conversation, i) => {
                         let isActive = selectedConversation?._id === conversation?._id;
                         return (
                             <div
@@ -168,6 +198,16 @@ const Sidebar = () => {
                         )
 
                     })}
+                    {has_more && conversations?.length > 0 && (
+                        <div className="flex justify-center py-4">
+                            <button
+                                onClick={HandelShowMore}
+                                className="w-full mx-3 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] text-slate-400 text-sm font-medium hover:bg-white/[0.06] hover:text-slate-200 transition-all duration-200 cursor-pointer">
+                                Show More
+                            </button>
+                        </div>
+                    )
+                    }
                 </div>
 
                 <div className='mx-2.5 h-px bg-white/[0.06]' />
@@ -199,6 +239,7 @@ const Sidebar = () => {
                                 </button>
                                 <SignOut />
                             </div>
+
 
 
                         </div>

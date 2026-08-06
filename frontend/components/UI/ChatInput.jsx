@@ -6,6 +6,7 @@ import { useSelector } from "react-redux"
 import { useAuth } from "@clerk/nextjs"
 import { useDispatch } from 'react-redux'
 import { addMessage, setMessages, appendToLastMessage, setLastMessageImages } from '@/redux/messageSlice'
+import {setIsCreatingConversation} from '@/redux/conversationSlice'
 import { create_conversation } from '@/features/create_conversation.js'
 import { update_conversation } from '@/features/update_covnersation.js'
 import { addConversation, setconversationTitle, setSelectedConversation } from '@/redux/conversationSlice'
@@ -29,6 +30,7 @@ const ChatInput = () => {
     try {
       let conversation = selectedConversation
       if (!conversation) {
+        dispatch(setIsCreatingConversation(true))
         const res = await create_conversation(await getToken())
         const conv = res.conversation
         conv["_id"] = res.conversation_id
