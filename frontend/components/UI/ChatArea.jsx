@@ -14,35 +14,35 @@ const ChatArea = () => {
   const { isCreatingConversation } = useSelector((state) => state.conversation)
   const { getToken } = useAuth()
   const dispatch = useDispatch();
-  const get_msg = async () => {
-    if (selectedConversation) {
-      const response = await getmessages(selectedConversation?._id, await getToken());
-      console.log("response", response);
+  const get_msg = async (conversationId) => {
+    try {
+      const token = await getToken();
+
+      const response = await getmessages(conversationId, token);
+
       if (response.error) {
         console.error(response.error);
-      } else {
-        console.log("Messages for conversation", response.messages);
-        if (response.messages.length === 0) {
-          console.log("No messages found for this conversation.");
-          if (response.messages[0]?.conversation_id !== selectedConversation?._id) {
-            console.log("Clearing messages for a different conversation.");
-            dispatch(setMessages([]));
-          }
-        } else {
-          console.log("Messages found:", response.messages);
-          dispatch(setMessages(response.messages));
-        }
+        return;
       }
+
+      // Ignore stale responses if the user switched conversations
+      if (selectedConversation?._id !== conversationId) {
+        return;
+      }
+
+      dispatch(setMessages(response.messages || []));
+    } catch (err) {
+      console.error(err);
     }
-  }
+  };
   useEffect(() => {
-   
-    if (!selectedConversation) return;
     if (isCreatingConversation) return;
-    dispatch(setMessages([]));
-    if (selectedConversation) {
-      get_msg();
+    if (!selectedConversation) {
+      dispatch(setMessages([]));
+      return;
     }
+    
+    get_msg(selectedConversation._id);
   }, [selectedConversation]);
   return (
     <div className="min-w-0 flex-1 flex flex-col">

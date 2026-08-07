@@ -16,7 +16,7 @@ const Sidebar = () => {
     const { getToken } = useAuth();
     const { user, isSignedIn } = useUser();
     const [isCollapsed, setIsCollapsed] = useState(false);
-    const [has_more, setHasMore] = useState(true);
+    const [has_more, setHasMore] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [page, setPage] = useState(1);
 
@@ -198,7 +198,7 @@ const Sidebar = () => {
                         )
 
                     })}
-                    {has_more && conversations?.length > 0 && (
+                    {has_more && (
                         <div className="flex justify-center py-4">
                             <button
                                 onClick={HandelShowMore}

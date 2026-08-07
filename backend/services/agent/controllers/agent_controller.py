@@ -39,19 +39,18 @@ async def agent(request: Request):
         images = []
 
         try:
-            # save user message first
-            asyncio.create_task(_save_message(
-                os.getenv("CHAT_SERVICE_URL") + "/save-message",
-                {"Authorization": auth_header},
-                {
-                    "conversation_id": conversation_id,
-                    "role": "user",
-                    "content": prompt.strip(),
-                },
-            ))
             asyncio.create_task(
             addMessage(conversation_id, "user", prompt.strip())
             )
+            asyncio.create_task(_save_message(
+                            os.getenv("CHAT_SERVICE_URL") + "/save-message",
+                            {"Authorization": os.getenv("CHAT_SERVICE_AUTHORIZATION")},
+                            {
+                                "conversation_id": conversation_id,
+                                "role": "user",
+                                "content": prompt.strip(),
+                            },
+                        ))
             async for mode, payload in graph.astream(
                 {
                     "user_query": prompt,
@@ -84,6 +83,7 @@ async def agent(request: Request):
             addMessage(conversation_id, "assistant", full_text)
             )
 
+         
             asyncio.create_task(_save_message(
                 os.getenv("CHAT_SERVICE_URL") + "/save-message",
                 {"Authorization": os.getenv("CHAT_SERVICE_AUTHORIZATION")},

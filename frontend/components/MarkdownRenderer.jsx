@@ -57,19 +57,27 @@ export default function MarkdownRenderer({ content }) {
         ),
         hr: () => <hr className='my-6 border-white/10' />,
         table: ({ children }) => (
-          <div className='table-scroll overflow-x-auto my-4 rounded-lg border border-white/10'>
-            <table className='min-w-full border-collapse text-sm'>
+          <div className='table-scroll overflow-x-auto my-4 rounded-xl border border-white/10'>
+            <table className='min-w-full border-separate border-spacing-0 text-sm'>
               {children}
             </table>
           </div>
         ),
+        thead: ({ children }) => (
+          <thead className='bg-white/5'>{children}</thead>
+        ),
+        tr: ({ children }) => (
+          <tr className='[&>td]:border-b [&>td]:border-white/10 last:[&>td]:border-b-0'>
+            {children}
+          </tr>
+        ),
         th: ({ children }) => (
-          <th className='border border-white/10 bg-white/5 px-3 py-2 text-left font-semibold text-white'>
+          <th className='border-b border-white/10 px-3 py-2 text-left font-semibold text-white first:rounded-tl-xl last:rounded-tr-xl'>
             {children}
           </th>
         ),
         td: ({ children }) => (
-          <td className='border border-white/10 px-3 py-2 text-slate-200'>
+          <td className='px-3 py-2 text-slate-200'>
             {children}
           </td>
         ),

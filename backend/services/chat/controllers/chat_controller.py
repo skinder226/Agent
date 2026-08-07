@@ -76,7 +76,7 @@ async def getConversations(request: Request):
         # Find user's conversations
 
         page = request.query_params.get("page", 1)
-        limit = 30
+        limit = 20
 
 
         
@@ -110,7 +110,8 @@ async def UpdateConversation(request: Request):
 
         conversation_id = body.get("conversation_id")
         title = body.get("title")
-
+        if len(title.strip()) > 21:
+            title = title.strip()[:21] + "..."
         print("Conversation ID:", conversation_id)
         print("Title:", title)
 
