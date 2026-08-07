@@ -36,7 +36,7 @@ const Sidebar = () => {
         let converations = await getConversations(token, page);
         dispatch(setConversations([...conversations, ...converations.conversations]));
         setHasMore(converations.has_more);
-        // setPage(page + 1);
+        setPage(page + 1);
     }
 
 
@@ -52,6 +52,8 @@ const Sidebar = () => {
         created_conversation["conversation"]["_id"] = created_conversation["conversation_id"]
         console.log("Created Conversation:", created_conversation);
         dispatch(addConversation(created_conversation["conversation"]));
+        dispatch(setIsCreatingConversation(false));
+        
 
     }
     useEffect(() => {
@@ -84,7 +86,8 @@ const Sidebar = () => {
                         return (
                             <div
                                 onClick={() =>
-                                    dispatch(setSelectedConversation(conversation))
+                                    dispatch(setSelectedConversation(conversation)) && dispatch(setIsCreatingConversation(false))
+                                    
                                 }
                                 className={`flex items-center gap-2.5 cursor-pointer mb-0.5 px-2 py-2 rounded-[10px] border transition-colors duration-150 ${isActive ? "bg-indigo-500/10 border-indigo-500/[0.18]" : "bg-transparent border-transparent hover:bg-white/5"}`} key={conversation?._id || i}>
                                 <div className={`flex items-center justify-center shrink-0 w-[26px] h-[26px] rounded-lg transition-colors duration-150 ${isActive ? "bg-indigo-500/15 text-indigo-400" : "bg-white/[0.05] text-slate-500"}`}>

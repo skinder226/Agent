@@ -8,6 +8,7 @@ import getmessages from '@/features/get_messages'
 import { useDispatch, useSelector } from 'react-redux'
 import { setMessages } from '@/redux/messageSlice'
 import { useAuth } from "@clerk/nextjs"
+import 'streamdown/styles.css';
 const ChatArea = () => {
   const { selectedConversation } = useSelector((state) => state.conversation)
   const { messages } = useSelector((state) => state.message)
@@ -29,8 +30,13 @@ const ChatArea = () => {
       if (selectedConversation?._id !== conversationId) {
         return;
       }
+      if (response.messages.length !== 0) {
+        dispatch(setMessages(response.messages));
+      }
+      else {
+        // dispatch(setMessages([]));
+      }
 
-      dispatch(setMessages(response.messages || []));
     } catch (err) {
       console.error(err);
     }
@@ -38,7 +44,7 @@ const ChatArea = () => {
   useEffect(() => {
     if (isCreatingConversation) return;
     if (!selectedConversation) {
-      dispatch(setMessages([]));
+ 
       return;
     }
     

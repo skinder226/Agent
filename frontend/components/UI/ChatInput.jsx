@@ -5,7 +5,7 @@ import sendMessage from "@/features/sendMessage"
 import { useSelector } from "react-redux"
 import { useAuth } from "@clerk/nextjs"
 import { useDispatch } from 'react-redux'
-import { addMessage, setMessages, appendToLastMessage, setLastMessageImages } from '@/redux/messageSlice'
+import { addMessage, appendToLastMessage, setLastMessageImages } from '@/redux/messageSlice'
 import {setIsCreatingConversation} from '@/redux/conversationSlice'
 import { create_conversation } from '@/features/create_conversation.js'
 import { update_conversation } from '@/features/update_covnersation.js'
@@ -37,11 +37,12 @@ const ChatInput = () => {
         dispatch(setSelectedConversation(conv))
         dispatch(addConversation(conv))
         conversation = conv
+        dispatch(setIsCreatingConversation(false))
       }
 
       if (conversation.Title == "New Chat") {
-        await update_conversation(conversation?._id, trimmed, await getToken())
-        dispatch(setconversationTitle({ conversation_id: conversation?._id, title: trimmed }))
+        await update_conversation(conversation?._id, trimmed.slice(0,21), await getToken())
+        dispatch(setconversationTitle({ conversation_id: conversation?._id, title: trimmed.slice(0,21) }))
       }
 
       dispatch(addMessage({ role: "user", content: trimmed }))

@@ -26,6 +26,7 @@ Nvidia = ChatOpenAI(
 )
 
 
+
 def get_model(agent: str):
     if agent == "coding":
         return Nvidia
