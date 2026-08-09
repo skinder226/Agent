@@ -9,15 +9,14 @@ import { addMessage, appendToLastMessage, setLastMessageImages } from '@/redux/m
 import {setIsCreatingConversation} from '@/redux/conversationSlice'
 import { create_conversation } from '@/features/create_conversation.js'
 import { update_conversation } from '@/features/update_covnersation.js'
-import { addConversation, setconversationTitle, setSelectedConversation } from '@/redux/conversationSlice'
+import { addConversation, setconversationTitle, setSelectedConversation, setIsStreaming } from '@/redux/conversationSlice'
 
 const ChatInput = () => {
   const { getToken } = useAuth()
   const [selectedAgent, setSelectedAgent] = useState("auto")
   const [value, setValue] = useState("")
   const [error, setError] = useState(null)
-  const [isStreaming, setIsStreaming] = useState(false)
-  const { selectedConversation } = useSelector((state) => state.conversation)
+  const { selectedConversation, isStreaming } = useSelector((state) => state.conversation)
   const dispatch = useDispatch()
 
   const handleSend = async () => {
@@ -37,19 +36,43 @@ const ChatInput = () => {
         dispatch(setSelectedConversation(conv))
         dispatch(addConversation(conv))
         conversation = conv
-
+        // NOTE: setIsCreatingConversation(false) is intentionally NOT
+        // dispatched here. ChatArea's effect (watching selectedConversation)
+        // needs to still see isCreatingConversation === true when it fires,
+        // so it knows to skip fetching messages for this brand-new
+        // conversation instead of racing the fetch against the optimistic
+        // addMessage calls below. ChatArea resets the flag itself once it
+        // has consumed it.
       }
 
       if (conversation.Title == "New Chat") {
         await update_conversation(conversation?._id, trimmed.slice(0,21), await getToken())
-        dispatch(setconversationTitle({ conversation_id: conversation?._id, title: trimmed.slice(0,21) }))
+        dispatch(setconversationTitle({ conversation_id: conversation?._id, title: trimmed.slice(0,21)}))
       }
 
       dispatch(addMessage({ role: "user", content: trimmed,conversation_id: conversation?._id }))
       // placeholder assistant message that we'll stream tokens into
-      dispatch(addMessage({ role: "assistant", content: "", images: [] ,conversation_id: conversation?._id }))
+      dispatch(addMessage({ role: "assistant", content: "", images: [],conversation_id: conversation?._id }))
 
-      setIsStreaming(true)
+      dispatch(setIsStreaming(true))
+
+      // Buffer incoming tokens and flush them to Redux on a fixed interval
+      // instead of once per token. Every dispatch triggers a full
+      // MarkdownRenderer re-parse of the whole accumulated message, so
+      // dispatching per-token (which can be dozens of times/sec) makes that
+      // cost scale with token rate AND with how long the message has grown
+      // to. Flushing at a fixed ~40ms cadence caps the re-parse frequency
+      // regardless of how fast tokens arrive, without visibly changing how
+      // "live" the typing feels.
+      let pendingChunk = ""
+      let flushHandle = null
+      const flush = () => {
+        if (pendingChunk) {
+          dispatch(appendToLastMessage(pendingChunk))
+          pendingChunk = ""
+        }
+        flushHandle = null
+      }
 
       const result = await sendMessage(
         conversation?._id,
@@ -57,11 +80,19 @@ const ChatInput = () => {
         await getToken(),
         selectedAgent.toLowerCase(),
         (chunk) => {
-          dispatch(appendToLastMessage(chunk)) // live token updates
+          pendingChunk += chunk
+          if (!flushHandle) {
+            flushHandle = setTimeout(flush, 40)
+          }
         }
       )
 
-      setIsStreaming(false)
+      // Make sure the final partial buffer isn't lost if the stream ends
+      // between two flush intervals.
+      if (flushHandle) clearTimeout(flushHandle)
+      flush()
+
+      dispatch(setIsStreaming(false))
 
       if (result.error) {
         console.error(result.error)
@@ -73,7 +104,7 @@ const ChatInput = () => {
       dispatch(setLastMessageImages(result.images || []))
     } catch (err) {
       console.error(err)
-      setIsStreaming(false)
+      dispatch(setIsStreaming(false))
       setError(err.message)
       dispatch(appendToLastMessage("Sorry, something went wrong. Please try again."))
     }

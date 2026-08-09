@@ -80,6 +80,33 @@ const LANGUAGE_LABELS = {
   markdown: 'Markdown',
 };
 
+// Matches a "FILE: <name>" hint on the first line of a code block, in
+// whichever comment syntax the language uses (#, //, --, <!-- -->, /* */).
+// The system prompt instructs the model to emit this for complete,
+// standalone files so we can show a real filename instead of a generic
+// "Codeblock1.py". Returns null if no hint is present (e.g. short
+// snippets, or languages the prompt tells the model to skip it for).
+function extractFilenameHint(value) {
+  const newlineIndex = value.indexOf('\n');
+  const firstLine = newlineIndex === -1 ? value : value.slice(0, newlineIndex);
+
+  const patterns = [
+    /^\s*(?:#|\/\/|--)\s*FILE\s*:\s*(\S.*?)\s*$/i,
+    /^\s*<!--\s*FILE\s*:\s*(.*?)\s*-->\s*$/i,
+    /^\s*\/\*\s*FILE\s*:\s*(.*?)\s*\*\/\s*$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = firstLine.match(pattern);
+    if (match && match[1]) {
+      const rest = newlineIndex === -1 ? '' : value.slice(newlineIndex + 1);
+      return { fileName: match[1].trim(), rest };
+    }
+  }
+
+  return null;
+}
+
 /**
  * FileCard — collapsed representation of a large generated file.
  *
@@ -146,7 +173,7 @@ function FileCard({ fileName, language, value, isGenerating }) {
  * highlighting it on every partial line is wasted work. Once streaming
  * settles, it re-renders once, fully highlighted.
  */
-const CodeBlock = memo(function CodeBlock({ language, value, isStreaming }) {
+const CodeBlock = memo(function CodeBlock({ language, value, isStreaming, fileName }) {
   const [copied, setCopied] = useState(false);
 
   // Defer the expensive Prism highlight pass until *after* the browser has
@@ -179,15 +206,15 @@ const CodeBlock = memo(function CodeBlock({ language, value, isStreaming }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `snippet.${ext}`;
+    a.download = fileName || `snippet.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [language, value]);
+  }, [language, value, fileName]);
 
   return (
     <div className="my-4 rounded-xl border border-white/10 bg-[#0b0c0f] p-3">
       <div className="flex items-center justify-between px-1 pb-2">
-        <span className="text-xs font-medium text-slate-400">{language}</span>
+        <span className="text-xs font-medium text-slate-400">{fileName || language}</span>
         <div className="flex items-center gap-1">
           <button
             onClick={handleDownload}
@@ -325,23 +352,32 @@ function MarkdownRenderer({ content, isStreaming = false }) {
         }
 
         const language = className?.replace('language-', '') || 'text';
-        const lineCount = value.split('\n').length;
+        const hint = extractFilenameHint(value);
+        const displayValue = hint ? hint.rest : value;
+        const lineCount = displayValue.split('\n').length;
 
         if (lineCount > LARGE_FILE_LINE_THRESHOLD) {
           codeBlockIndexRef.current += 1;
           const ext = EXTENSIONS[language] || 'txt';
-          const fileName = `Codeblock${codeBlockIndexRef.current}.${ext}`;
+          const fileName = hint?.fileName || `Codeblock${codeBlockIndexRef.current}.${ext}`;
           return (
             <FileCard
               fileName={fileName}
               language={language}
-              value={value}
+              value={displayValue}
               isGenerating={isStreaming}
             />
           );
         }
 
-        return <CodeBlock language={language} value={value} isStreaming={isStreaming} />;
+        return (
+          <CodeBlock
+            language={language}
+            value={displayValue}
+            isStreaming={isStreaming}
+            fileName={hint?.fileName}
+          />
+        );
       },
     }),
     [isStreaming]

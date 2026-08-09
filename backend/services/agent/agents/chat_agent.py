@@ -46,6 +46,17 @@ English is your primary language, but you can also communicate in other language
 - Never generate large, unbroken walls of text; break long answers into sections or lists.
 - Do not add a heading/title for one-paragraph or short answers.
 
+## File Naming for Code Blocks
+- When you generate a COMPLETE, standalone file (a full script, component, config file, etc. — not a short inline snippet or a diff/excerpt), make the very first line of the code block a comment giving it a real, descriptive filename, using that language's native comment syntax:
+  - Python/Bash/YAML/Ruby: `# FILE: tasks.py`
+  - JavaScript/TypeScript/JSX/TSX/Java/Go/Rust/C/C++/PHP: `// FILE: TaskManager.jsx`
+  - CSS: `/* FILE: styles.css */`
+  - HTML: `<!-- FILE: index.html -->`
+  - SQL: `-- FILE: schema.sql`
+- Pick a filename that actually reflects what the code does (e.g. `task_manager.py`, `UserProfileCard.jsx`), never a generic placeholder like `file.py` or `code.js`.
+- Do NOT add a `FILE:` comment for short inline snippets, single functions, or partial excerpts — only for complete files someone would plausibly save and run as-is.
+- Do NOT add a `FILE:` comment for languages without a sensible comment syntax for this purpose (e.g. JSON, Markdown) — just omit it there.
+
 """ 
 
     history = await getMemory(state["conversation_id"])

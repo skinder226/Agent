@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI, Response, Request
 from fastapi.responses import StreamingResponse
 import httpx
-from starlette.concurrency import run_in_threadpool
+
 from verify import verify_clerk_token
 
 # Headers that shouldn't be forwarded as-is from the upstream response
@@ -54,6 +54,18 @@ async def _proxy(request: Request, path: str, host: str, headers: dict):
             try:
                 async for chunk in upstream.aiter_bytes():
                     yield chunk
+            except httpx.RemoteProtocolError:
+                # Upstream closed the connection mid-stream (upstream crashed,
+                # was restarted by --reload, network blip, etc). Nothing we
+                # can do about the missing data at this point, but we can at
+                # least tell the client the stream ended abnormally instead
+                # of just silently dying, and avoid crashing this process
+                # with an unhandled ASGI exception.
+                print("Upstream closed connection mid-stream")
+                yield f'data: {{"type": "error", "message": "Upstream connection lost"}}\n\n'
+            except Exception as e:
+                print(f"event_gen error: {e}")
+                yield f'data: {{"type": "error", "message": "Stream failed"}}\n\n'
             finally:
                 await upstream.aclose()
                 await client.aclose()
@@ -94,7 +106,7 @@ def route_middleware(prefix: str, host: str, app: FastAPI, require_verfication: 
             if request.headers.get("Authorization") == os.getenv("CHAT_SERVICE_AUTHORIZATION"):
                 return await _proxy(request, path, host, headers)
 
-            session = await run_in_threadpool(verify_clerk_token, request)
+            session = verify_clerk_token(request)
             user_id = session["sub"]
             headers.pop("x-user-id", None)
             headers.pop("X-User-ID", None)

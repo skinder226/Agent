@@ -1,3 +1,11 @@
+"""
+Some reasoning-capable models (Nemotron, DeepSeek-R1, QwQ, etc.) emit their
+internal reasoning wrapped in <think>...</think> before the real answer.
+That must never reach the user. This buffers across streamed chunks since
+the tags can be split across multiple deltas (e.g. "<th" then "ink>").
+"""
+
+
 class ThinkFilter:
     def __init__(self, on_emit):
         """on_emit(text): called with each piece of *visible* text as soon

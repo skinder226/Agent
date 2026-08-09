@@ -8,8 +8,12 @@ const conversationSlice = createSlice({
     conversations: [],
     selectedConversation: null,
     isCreatingConversation: false,
+    isStreaming: false,
   },
   reducers: {
+    setIsStreaming: (state, action) => {
+      state.isStreaming = action.payload;
+    },
     setConversations: (state, action) => {
       state.conversations = action.payload;
     },
@@ -56,5 +60,5 @@ const conversationSlice = createSlice({
 }});
 
 
-export const { setIsCreatingConversation, setConversations, setEndConversations, addConversation, deleteConversation, setSelectedConversation, deleteSelectedConversation, setconversationTitle } = conversationSlice.actions;
+export const { setIsStreaming, setIsCreatingConversation, setConversations, setEndConversations, addConversation, deleteConversation, setSelectedConversation, deleteSelectedConversation, setconversationTitle } = conversationSlice.actions;
 export default conversationSlice.reducer;
