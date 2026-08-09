@@ -43,7 +43,7 @@ if (isStreamingText) {
         }}
       />
 
-      <MarkdownRenderer content={content} isStreaming={isActiveAssistantMessage} />
+      <MarkdownRenderer content={content} isStreaming={isActiveAssistantMessage}/>
     </span>
   );
 }

@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Copy, Check, Download, Code2, Loader2 } from 'lucide-react';
 import { PrismAsyncLight as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { useDispatch } from 'react-redux';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 // ---------------------------------------------------------------------------
 
 import 'streamdown/styles.css';
+import { openArtifact } from '@/redux/ArtifactSlice';
 
 const EXTENSIONS = {
   python: 'py',
@@ -57,7 +59,7 @@ const EXTENSIONS = {
 // (name + type + download) instead of rendering the full code inline —
 // same idea as Claude's own "big generated file" card. Keeps very large
 // generated files from turning the chat into an unreadable wall of code.
-const LARGE_FILE_LINE_THRESHOLD = 40;
+const LARGE_FILE_LINE_THRESHOLD = 60;
 
 const LANGUAGE_LABELS = {
   python: 'Python',
@@ -118,6 +120,7 @@ function extractFilenameHint(value) {
  * streaming finishes, it swaps to a real Download button.
  */
 function FileCard({ fileName, language, value, isGenerating }) {
+  const dispatch = useDispatch();
   const handleDownload = useCallback(() => {
     const blob = new Blob([value], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -130,8 +133,28 @@ function FileCard({ fileName, language, value, isGenerating }) {
 
   const label = LANGUAGE_LABELS[language] || language;
 
+  // Live "Generating Ns" counter. Uses Date.now() deltas rather than just
+  // incrementing a counter each tick, so it stays accurate even if the
+  // interval itself drifts (tab backgrounded, main thread busy, etc).
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!isGenerating) return;
+
+    const startedAt = Date.now();
+    setElapsedSeconds(0);
+
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isGenerating]);
   return (
-    <div className="my-4 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#14161c] px-4 py-3">
+    <div className="my-4 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#14161c] px-4 py-3 cursor-pointer hover:bg-white/5 transition-colors" 
+    onClick={() => {
+      dispatch(openArtifact({ fileName, language, content:value }));
+    }}>
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-slate-300">
           <Code2 size={18} />
@@ -143,9 +166,9 @@ function FileCard({ fileName, language, value, isGenerating }) {
       </div>
 
       {isGenerating ? (
-        <div className="flex shrink-0 items-center gap-2 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-slate-400">
+        <div className="flex shrink-0 items-center gap-2 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs text-slate-400 tabular-nums">
           <Loader2 size={14} className="animate-spin" />
-          Generating
+          Generating &middot; {elapsedSeconds}s
         </div>
       ) : (
         <button
@@ -366,6 +389,7 @@ function MarkdownRenderer({ content, isStreaming = false }) {
               language={language}
               value={displayValue}
               isGenerating={isStreaming}
+    
             />
           );
         }
