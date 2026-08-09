@@ -37,7 +37,7 @@ const ChatInput = () => {
         dispatch(setSelectedConversation(conv))
         dispatch(addConversation(conv))
         conversation = conv
-        dispatch(setIsCreatingConversation(false))
+
       }
 
       if (conversation.Title == "New Chat") {
@@ -45,9 +45,9 @@ const ChatInput = () => {
         dispatch(setconversationTitle({ conversation_id: conversation?._id, title: trimmed.slice(0,21) }))
       }
 
-      dispatch(addMessage({ role: "user", content: trimmed }))
+      dispatch(addMessage({ role: "user", content: trimmed,conversation_id: conversation?._id }))
       // placeholder assistant message that we'll stream tokens into
-      dispatch(addMessage({ role: "assistant", content: "", images: [] }))
+      dispatch(addMessage({ role: "assistant", content: "", images: [] ,conversation_id: conversation?._id }))
 
       setIsStreaming(true)
 

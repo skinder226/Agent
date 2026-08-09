@@ -104,10 +104,8 @@ async def agent(request: Request):
 
 
         except Exception as e:
-            
-            print(f"Error in event_stream: {traceback.print_exc()}")
-            yield f"data: {json.dumps({"type": "error","message": str(e)})}\n\n"
-
-            raise
+            print("Error in event_stream:")
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

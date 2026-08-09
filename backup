@@ -1,286 +1,211 @@
-from graph.state import agnetState
-from langchain.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
-from config.llmModels import get_model
-from config.memory import getMemory
-from rich import print
-from langchain.agents import create_agent
-import json
-from tools.search_tool import search_tool
+'use client';
 
+import { Streamdown } from 'streamdown';
+import remarkGfm from 'remark-gfm';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { ExternalLink, Copy, Check } from 'lucide-react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+// We are intentionally NOT using @streamdown/code here. Its default look
+// depends on shadcn/ui's CSS variables (--background, --muted-foreground,
+// --border, etc.) plus a Tailwind `@source` directive pointed at its dist
+// folder — if either is missing, the buttons/box render broken. Instead we
+// reuse the exact same hand-styled code block from the react-markdown
+// version via Streamdown's `components` override, so styling is identical
+// and doesn't depend on shadcn tokens at all.
+//
+// NOTE: rehypeRaw is intentionally dropped.
+// - It's expensive to run on every streamed chunk (full re-parse of raw HTML)
+// - It's an XSS risk (renders any raw <script>/<img onerror> the model outputs)
+// If you truly need raw HTML passthrough, re-add it deliberately and sanitize.
+//
+// Required for the `animated` prop below: it injects word-level <span>s
+// with data-sd-animate, and the actual @keyframes (fadeIn/blurIn/slideUp)
+// live in this stylesheet. Without it, `animated` has no visible effect.
+import 'streamdown/styles.css';
 
-async def chat_agent(state: agnetState):
-    user_query = state['user_query']
-    searched_context = state.get('search_results', [])
-    prompt = f"""You are CortexAI, an intelligent AI assistant.
+const CodeBlock = memo(function CodeBlock({ language, value, isStreaming }) {
+  const [copied, setCopied] = useState(false);
 
-## Core Behavior
-- For simple questions, greetings, and short queries, respond naturally in plain text — no headings, no bullet points.
-- For technical, educational, coding, or detailed topics, use clean Markdown as described below.
-- Match the depth of your answer to the depth of the question. Don't pad simple questions with unnecessary structure.
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [value]);
 
-## Tool Usage
-- You have access to a search_tool for retrieving real-time or up-to-date information.
-- Use the search tool when the question involves current events, recent news, live data (prices, scores, weather), or anything that may have changed after your training data — do not rely on memory for these.
-- Do NOT use the search tool for general knowledge, definitions, math, coding help, or anything you already know confidently and that does not change over time.
-- If you call the search tool, base your final answer primarily on the search results returned. Only fall back to your own knowledge if the search results are empty, irrelevant, or insufficient to answer the question.
-- Never say you "cannot access the internet" or "don't have real-time data" — you have a working search tool, so use it when needed instead of refusing.
-- If search results conflict with each other, mention the discrepancy briefly rather than picking one arbitrarily.
-- Do not call the search tool more than once for the same query unless the first attempt clearly failed or returned no useful results.
+  return (
+    <div className="my-4 overflow-hidden rounded-xl border border-white/10 bg-[#0d0e12] shadow-lg">
+      <div className="flex items-center justify-between bg-[#1b1d24] border-b border-white/10 px-4 py-2">
+        <span className="uppercase text-xs font-medium tracking-wide text-slate-400">
+          {language}
+        </span>
+        <button
+          className="flex items-center gap-1 text-xs text-slate-300 hover:text-white cursor-pointer transition-colors"
+          onClick={handleCopy}
+        >
+          {copied ? (
+            <>
+              <Check size={14} className="text-emerald-400" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy size={14} />
+              Copy
+            </>
+          )}
+        </button>
+      </div>
+      <div className="code-scroll overflow-x-auto">
+        {isStreaming ? (
+          // Cheap fallback while tokens are still arriving — avoids
+          // re-running Prism's tokenizer on every chunk.
+          <pre className="m-0 p-4 text-sm font-mono text-slate-200 whitespace-pre-wrap break-words">
+            {value}
+          </pre>
+        ) : (
+          <SyntaxHighlighter
+            language={language}
+            style={oneDark}
+            showLineNumbers
+            wrapLines={false}
+            lineNumberStyle={{
+              minWidth: '2.5em',
+              paddingRight: '1em',
+              color: '#4b5563',
+              userSelect: 'none',
+            }}
+            customStyle={{
+              margin: 0,
+              padding: '1rem',
+              background: 'transparent',
+              fontSize: '0.85rem',
+              lineHeight: '1.6',
+            }}
+            codeTagProps={{
+              style: { fontFamily: "'JetBrains Mono', monospace" },
+            }}
+          >
+            {value}
+          </SyntaxHighlighter>
+        )}
+      </div>
+    </div>
+  );
+});
 
-## Formatting Rules (for Markdown responses only)
-- Use `#` for the main title and `##` for sections — only when the response is long/structured enough to need them.
-- Always leave a blank line after any heading before the content starts.
-- Never put a heading and its content on the same line.
-- Use bullet points for unordered lists and numbered lists for sequential steps.
-- Use fenced code blocks with a language tag for any code (e.g. ```python).
-- Keep paragraphs short — 2-4 sentences max per paragraph.
-- Never generate large, unbroken walls of text; break long answers into sections or lists.
-- Do not add a heading/title for one-paragraph or short answers.
-"""
+function MarkdownRenderer({ content, isStreaming = false }) {
+  const components = useMemo(
+    () => ({
+      h1: ({ children }) => (
+        <h1 className="text-2xl font-bold mt-6 mb-3 text-white">{children}</h1>
+      ),
+      h2: ({ children }) => (
+        <h2 className="text-xl font-semibold mt-5 mb-2 text-white">{children}</h2>
+      ),
+      h3: ({ children }) => (
+        <h3 className="text-lg font-semibold mt-4 mb-2 text-white">{children}</h3>
+      ),
+      p: ({ children }) => (
+        <p className="mb-3 leading-relaxed whitespace-pre-wrap break-words text-slate-200">
+          {children}
+        </p>
+      ),
+      strong: ({ children }) => (
+        <strong className="font-semibold text-white">{children}</strong>
+      ),
+      em: ({ children }) => <em className="italic text-slate-300">{children}</em>,
+      ul: ({ children }) => (
+        <ul className="list-disc pl-5 space-y-1 my-2 text-slate-200">{children}</ul>
+      ),
+      ol: ({ children }) => (
+        <ol className="list-decimal pl-5 space-y-1 my-2 text-slate-200">{children}</ol>
+      ),
+      li: ({ children }) => <li className="marker:text-indigo-400">{children}</li>,
+      blockquote: ({ children }) => (
+        <blockquote className="border-l-4 border-indigo-500/50 bg-white/5 pl-4 py-2 my-4 italic text-slate-300 rounded-r-md">
+          {children}
+        </blockquote>
+      ),
+      hr: () => <hr className="my-6 border-white/10" />,
+      table: ({ children }) => (
+        <div className="table-scroll overflow-x-auto my-4 rounded-xl overflow-hidden">
+          <table className="min-w-full my-5 border-separate border-spacing-0 text-sm border border-white/10 rounded-2xl">
+            {children}
+          </table>
+        </div>
+      ),
+      thead: ({ children }) => <thead className="bg-white/5">{children}</thead>,
+      tr: ({ children }) => (
+        <tr className="[&>td]:border-b [&>td]:border-white/10 last:[&>td]:border-b-0">
+          {children}
+        </tr>
+      ),
+      th: ({ children }) => (
+        <th className="border-b border-white/10 px-3 py-2 text-left font-semibold text-white first:rounded-tl-xl last:rounded-tr-xl">
+          {children}
+        </th>
+      ),
+      td: ({ children }) => <td className="px-3 py-2 text-slate-200">{children}</td>,
+      a: ({ href, children }) => (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 inline-flex items-center gap-1 transition-colors"
+        >
+          {children}
+          <ExternalLink size={14} />
+        </a>
+      ),
+      // Streamdown calls this the same way react-markdown does: once per
+      // inline `code` span and once per fenced code block (with a
+      // `language-xxx` className on the latter).
+      code: ({ className, children }) => {
+        const value = String(children).trim();
 
-    history = await getMemory(state['conversation_id'])
-    messages = [SystemMessage(content=prompt)]
-
-
-    for msg in history:
-        content = msg.get('content')
-        if not content:
-            continue  # skip corrupted/empty history entries defensively
-        if msg['role'] == 'user':
-            messages.append(HumanMessage(content=content))
-        else:
-            messages.append(AIMessage(content=content))
-
-    messages.append(HumanMessage(content=user_query))
-    
-    llm = get_model("chat")
-    agent = create_agent(model=llm,system_prompt=prompt,tools=[search_tool])
-    llm_response = agent.ainvoke({
-     "messages": messages   
-    })
-    tool_messages = [msg for msg in llm_response.get("messages", []) if isinstance(msg, ToolMessage)]
-    images = []
-    for tool in tool_messages:
-        print(tool)
-        if tool.name == "search_tool":
-            images = json.loads(tool.content).get("images", [])
-    return {"ai_response": llm_response.get("messages")[-1].content,"images": images}
-
-
-
-
-
-
-import os
-from urllib import response
-from wsgiref import headers
-from fastapi import FastAPI, Response, Request
-import httpx
-
-from verify import verify_clerk_token
-
-def route_middleware(prefix: str, host: str, app: FastAPI,require_verfication: bool = False):
-    @app.api_route(
-        f"/{prefix}/{{path:path}}",
-        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-    )
-    async def auth_proxy(request: Request, path: str):
-        headers = dict(request.headers)
-        if require_verfication:
-            if request.headers.get("Authorization") is None:
-                return Response(
-                    content="Authorization header missing",
-                    status_code=401
-                )
-            if request.headers.get("Authorization") == os.getenv("CHAT_SERVICE_AUTHORIZATION"):
-                    print(request.method, f"{host}/{path}")
-                    async with httpx.AsyncClient(timeout=120.0) as client:
-                            response = await client.request(
-                                method=request.method,
-                                url=f"{host.rstrip('/')}/{path}",
-                                headers=headers,
-                                content=await request.body(),
-                                params=request.query_params,
-                            )
-                    return Response(
-                            content=response.content,
-                            status_code=response.status_code,
-                            headers=dict(response.headers),
-                        )
-                
-            session = verify_clerk_token(request)       
-            user_id = session["sub"]
-            headers.pop("x-user-id", None)
-            headers.pop("X-User-ID", None)
-            headers["X-User-ID"] = user_id
-        
-        
-        print(request.method, f"{host}/{path}")
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.request(
-                method=request.method,
-                url=f"{host.rstrip('/')}/{path}",
-                headers=headers,
-                content=await request.body(),
-                params=request.query_params,
-            )
-        return Response(
-            content=response.content,
-            status_code=response.status_code,
-            headers=dict(response.headers),
-        )
-    
-
-
-
-
-    from fastapi import FastAPI, Response,Request
-import os
-from dotenv import load_dotenv
-import httpx
-import uvicorn
-from route_middleware import route_middleware
-from fastapi.middleware.cors import CORSMiddleware
-load_dotenv()
-
-port = int(os.getenv("port"))
-
-app = FastAPI()
-
-origins = [
-    "http://localhost:3000",
-    # Add your production frontend domain here later (e.g., "https://vercel.app")
-]
-
-# 2. Apply the CORS middleware to your FastAPI app instance
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,          # Allows requests from localhost:3000
-    allow_credentials=True,         # Required if you send HTTP cookies or authorization headers
-    allow_methods=["*"],            # Allows all HTTP methods (POST, GET, OPTIONS, etc.)
-    allow_headers=["*"],            # Allows all custom or standardized headers
-)
-
-@app.get("/")
-def home():
-    return {"message": "Gateway running"}
-
-route_middleware("auth", os.getenv("AUTH_SERVICE_URL"),app)
-route_middleware("chat", os.getenv("CHAT_SERVICE_URL"),app,require_verfication=True) 
-route_middleware("agent", os.getenv("AGENT_SERVICE_URL"),app,require_verfication=True)
-
-
-if __name__ == "__main__":
-    print("gateway started")
-
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=port
-    )
-
-
-
-
-
-
-    from fastapi import FastAPI, Response,Request
-import os
-from dotenv import load_dotenv
-import uvicorn
-from routes.agent_route import router
-from config.db import connect_db,disconnect_db
-from contextlib import asynccontextmanager
-from fastapi.middleware.cors import CORSMiddleware
-load_dotenv()
-
-
-port = int(os.getenv("port"))
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    app.state.mongo_client = connect_db()
-
-    yield
-    # Shutdown
-    disconnect_db()
-
-app = FastAPI(lifespan=lifespan)
-
-
-origins = [
-    "http://localhost:3000",
-    # Add your production frontend domain here later (e.g., "https://vercel.app")
-]
-
-# 2. Apply the CORS middleware to your FastAPI app instance
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,          # Allows requests from localhost:3000
-    allow_credentials=True,         # Required if you send HTTP cookies or authorization headers
-    allow_methods=["*"],            # Allows all HTTP methods (POST, GET, OPTIONS, etc.)
-    allow_headers=["*"],            # Allows all custom or standardized headers
-)
-
-
-
-app.include_router(
-    router,
-    prefix=""
-)
-@app.get("/")
-def home():
-    return {"message": "Agent service running"}
-
-
-if __name__ == "__main__":
-    print("Agent service started")
-
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=port
-    )
-
-
-
-
-
-
-
-
-
-    async function sendMessage(conversation_id, prompt, token,agent) {
-    try {
-        const response = await fetch(`http://localhost:8000/agent/chat`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                "conversation_id": conversation_id,
-                "prompt": prompt,
-                "agent": agent
-            })
-        });
-
-        const data = await response.json();
-        console.log("response", data);
-
-        if (!response.ok) {
-            return { error: data.message || `Request failed with status ${response.status}` };
+        if (!className) {
+          return (
+            <code className="px-1.5 py-0.5 rounded bg-white/10 text-indigo-300 text-[0.9em] font-mono">
+              {value}
+            </code>
+          );
         }
 
-        return data;
-    }
-    catch (error) {
-        console.log(error);
-        return { error: `Error sending message: ${error.message}` };
-    }
+        const language = className?.replace('language-', '') || 'text';
+
+        return <CodeBlock language={language} value={value} isStreaming={isStreaming} />;
+      },
+    }),
+    [isStreaming]
+  );
+
+  return (
+    <Streamdown
+      // Tells Streamdown whether this block is still actively streaming. It
+      // uses this to render "unterminated" markdown gracefully (e.g. an
+      // unclosed ** or an incomplete code fence) instead of showing broken
+      // formatting mid-stream.
+      isAnimating={isStreaming}
+      // Without this, content just appears in whatever chunk size the
+      // network/backend delivered it in — if your backend (or a proxy in
+      // front of it) buffers and flushes in bursts, you get exactly the
+      // "1 word then 50 words" jump you're seeing. `animated` decouples the
+      // *visual* reveal from delivery chunking: it wraps each word in a
+      // span and only newly-mounted spans animate, so a 50-word burst still
+      // reveals word-by-word instead of popping in all at once.
+      // blurIn masks batchy arrivals better than plain fadeIn.
+      animated={{ animation: 'blurIn', duration: 250, easing: 'ease-out' }}
+      remarkPlugins={[remarkGfm]}
+      // No `plugins={{ code }}` here — we're overriding `code` directly in
+      // `components` instead, so the default @streamdown/code UI never
+      // renders and can't clash with your theme.
+      components={components}
+    >
+      {content}
+    </Streamdown>
+  );
 }
 
-export default sendMessage;
+export default memo(MarkdownRenderer);

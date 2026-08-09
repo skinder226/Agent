@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI, Response, Request
 from fastapi.responses import StreamingResponse
 import httpx
-
+from starlette.concurrency import run_in_threadpool
 from verify import verify_clerk_token
 
 # Headers that shouldn't be forwarded as-is from the upstream response
@@ -94,7 +94,7 @@ def route_middleware(prefix: str, host: str, app: FastAPI, require_verfication: 
             if request.headers.get("Authorization") == os.getenv("CHAT_SERVICE_AUTHORIZATION"):
                 return await _proxy(request, path, host, headers)
 
-            session = verify_clerk_token(request)
+            session = await run_in_threadpool(verify_clerk_token, request)
             user_id = session["sub"]
             headers.pop("x-user-id", None)
             headers.pop("X-User-ID", None)

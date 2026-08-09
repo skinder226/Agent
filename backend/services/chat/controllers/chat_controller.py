@@ -219,7 +219,7 @@ async def getMessages(request: Request):
 
         result = await messages_collection.find(
             {"conversation_id": conversation_id}
-        ).to_list(length=None)
+        ).sort("created_at", 1).to_list(length=None)
 
         for msg in result:
             msg["_id"] = str(msg["_id"])

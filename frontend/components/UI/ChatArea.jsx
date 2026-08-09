@@ -3,10 +3,11 @@ import React from 'react'
 import Nav from './Nav'
 import MessageList from './MessageList'
 import ChatInput from './ChatInput'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import getmessages from '@/features/get_messages'
 import { useDispatch, useSelector } from 'react-redux'
 import { setMessages } from '@/redux/messageSlice'
+import { setIsCreatingConversation } from '@/redux/conversationSlice'
 import { useAuth } from "@clerk/nextjs"
 import 'streamdown/styles.css';
 const ChatArea = () => {
@@ -15,6 +16,8 @@ const ChatArea = () => {
   const { isCreatingConversation } = useSelector((state) => state.conversation)
   const { getToken } = useAuth()
   const dispatch = useDispatch();
+  const handledSelectionRef = useRef(null);
+
   const get_msg = async (conversationId) => {
     try {
       const token = await getToken();
@@ -33,23 +36,27 @@ const ChatArea = () => {
       if (response.messages.length !== 0) {
         dispatch(setMessages(response.messages));
       }
-      else {
-        // dispatch(setMessages([]));
-      }
 
     } catch (err) {
       console.error(err);
     }
   };
   useEffect(() => {
-    if (isCreatingConversation) return;
-    if (!selectedConversation) {
- 
+    if (!selectedConversation) return;
+
+    if (handledSelectionRef.current === selectedConversation) return;
+    handledSelectionRef.current = selectedConversation;
+
+    if (isCreatingConversation) {
+      dispatch(setIsCreatingConversation(false));
       return;
     }
-    
+    console.log("Fetching messages for conversation:", selectedConversation._id);
+    if (messages.length !== 0 && messages[messages.length - 1].conversation_id !== selectedConversation._id) {
+        dispatch(setMessages([]));
+      }
     get_msg(selectedConversation._id);
-  }, [selectedConversation]);
+  }, [selectedConversation, !isCreatingConversation]);
   return (
     <div className="min-w-0 flex-1 flex flex-col">
       <Nav />
