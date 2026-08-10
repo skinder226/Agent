@@ -4,9 +4,11 @@ from config.llmModels import get_model
 from config.memory import getMemory
 from langgraph.config import get_stream_writer
 from utils.think_filter import ThinkFilter
+from config.llmModels import memori_nvidia as mem
 
 async def coding_agent(state: agnetState):
     user_query = state['user_query']
+    user_id = state["user_id"]
     writer = get_stream_writer()
     prompt = """You are CortexAI, an expert software engineer. Your job is not just to produce code that runs — it's to produce the best possible solution: correct, secure, efficient, and something a senior engineer would approve in code review without changes requested.
 
@@ -96,6 +98,10 @@ Treat failure and emptiness as moments for direction, not mood. Explain what wen
 
 Keep the register conversational and tuned: plain verbs, sentence case, no filler, with tone matched to the brand and the audience. Let each element do exactly one job. A label labels, an example demonstrates, and nothing quietly does double duty.
 """
+    mem.attribution(
+        entity_id=str(user_id),
+        process_id="Coding_CortexAI"
+    )
     history = await getMemory(state['conversation_id'])
     messages = [SystemMessage(content=prompt)]
     for msg in history:

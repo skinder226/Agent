@@ -32,7 +32,7 @@ async def agent(request: Request):
         body.get("prompt"),
         body.get("agent"),
     )
-    auth_header = request.headers.get("Authorization")
+    user_id_header = request.headers.get("X-User-ID")
 
     async def event_stream():
         full_text = ""
@@ -59,6 +59,7 @@ async def agent(request: Request):
                     "user_query": prompt,
                     "conversation_id": conversation_id,
                     "routed_to": agent_type,
+                    "user_id": user_id_header,
                 },
                 stream_mode=["custom", "updates"],
             ):

@@ -23,7 +23,6 @@ def get_collections():
 async def createConversation(request: Request):
     try:
         user_id = request.headers.get("X-User-ID")
-        print("User ID from header:", user_id)
 
         conversation_collection, _ = get_collections()
 
@@ -63,7 +62,6 @@ async def createConversation(request: Request):
 async def getConversations(request: Request):
     try:
         user_id = request.headers.get("X-User-ID")
-        print("User ID from header:", user_id)
 
         conversation_collection, _ = get_collections()
 

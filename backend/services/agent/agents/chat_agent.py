@@ -10,7 +10,7 @@ from config.memory import getMemory
 from langchain.agents import create_agent
 from langgraph.config import get_stream_writer
 import json
-
+from config.llmModels import memori_nvidia as mem
 from tools.search_tool import search_tool
 
 
@@ -58,6 +58,13 @@ English is your primary language, but you can also communicate in other language
 - Do NOT add a `FILE:` comment for languages without a sensible comment syntax for this purpose (e.g. JSON, Markdown) — just omit it there.
 
 """ 
+
+    user_id = state["user_id"]
+    mem.attribution(
+        entity_id=str(user_id),
+        process_id="Chat_CortexAI"
+    )
+
 
     history = await getMemory(state["conversation_id"])
 
